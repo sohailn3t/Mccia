@@ -1,0 +1,6 @@
+{
+  "name": "DemandPredict - FMCG Inventory Optimizer",
+  "description": "AI-powered demand forecasting and inventory optimization system for FMCG distributors, featuring SKU classification and stockout predictive alerts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
