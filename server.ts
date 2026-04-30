@@ -54,38 +54,52 @@ interface Festival {
   festival_name: string;
 }
 
-// Utility to normalize keys based on common aliases
-const normalizeRow = (row: any) => {
-  const normalized: any = {};
+// Utility to create a header mapper to avoid O(N) lookups per row
+const createHeaderMapper = (sampleRow: any) => {
   const aliases: Record<string, string[]> = {
     sku_id: ['sku_id', 'sku', 'sku_code', 'SKU', 'SKU_ID', 'SKU ID'],
     week_date: ['week_date', 'week_start_date', 'date', 'week', 'Week', 'Week_Start_Date'],
     units_sold: ['units_sold', 'quantity', 'units', 'sales', 'Sales', 'Quantity'],
     product_name: ['product_name', 'sku_name', 'name', 'Name', 'Product_Name'],
-    moq: ['moq', 'moq_from_supplier', 'MOQ'],
-    lead_time_days: ['lead_time_days', 'lead_time', 'supplier_lead_time_days'],
-    shelf_life_days: ['shelf_life_days', 'shelf_life', 'expiry_days'],
-    warehouse_stock: ['warehouse_stock', 'warehouse', 'Warehouse_Stock'],
-    in_transit_qty: ['in_transit_qty', 'in_transit', 'In_Transit_Qty'],
-    committed_qty: ['committed_qty', 'committed', 'Committed_Qty'],
+    moq: ['moq', 'moq_from_supplier', 'MOQ', 'moq_from_origin'],
+    lead_time_days: ['lead_time_days', 'lead_time', 'supplier_lead_time_days', 'lead_days'],
+    shelf_life_days: ['shelf_life_days', 'shelf_life', 'expiry_days', 'shelflife'],
+    warehouse_stock: ['warehouse_stock', 'warehouse', 'Warehouse_Stock', 'wh_stock'],
+    in_transit_qty: ['in_transit_qty', 'in_transit', 'In_Transit_Qty', 'it_stock'],
+    committed_qty: ['committed_qty', 'committed', 'Committed_Qty', 'res_stock'],
     promo_uplift_factor: ['promo_uplift_factor', 'uplift', 'promo_uplift'],
     festival_name: ['festival_name', 'event', 'festival']
   };
 
-  Object.entries(row).forEach(([key, value]) => {
+  const mapping: Record<string, string> = {};
+  Object.keys(sampleRow).forEach(key => {
     const targetKey = Object.keys(aliases).find(target => 
       target === key.toLowerCase() || aliases[target].includes(key)
     );
-    normalized[targetKey || key] = value;
+    if (targetKey) {
+      mapping[key] = targetKey;
+    }
   });
-  return normalized;
+  return mapping;
 };
 
-// Utility to parse buffer to CSV
+// Utility to parse buffer to CSV with optimized normalization
 const parseCSVBuffer = <T>(buffer: Buffer): T[] => {
   const content = buffer.toString("utf8");
   const parsed = Papa.parse(content, { header: true, dynamicTyping: true, skipEmptyLines: true });
-  return parsed.data.map(row => normalizeRow(row)) as T[];
+  
+  if (parsed.data.length === 0) return [];
+  
+  const mapping = createHeaderMapper(parsed.data[0]);
+  
+  return parsed.data.map((row: any) => {
+    const normalized: any = {};
+    for (const key in row) {
+      const target = mapping[key];
+      normalized[target || key] = row[key];
+    }
+    return normalized;
+  }) as T[];
 };
 
 function performAnalysis(
