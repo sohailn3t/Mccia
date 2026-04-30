@@ -108,6 +108,22 @@ function performAnalysis(
     skuWeeklyTotals[skuId][weekDate] = (skuWeeklyTotals[skuId][weekDate] || 0) + units;
   });
 
+  // Pre-index inventories for O(1) lookup
+  const inventoryMap = new Map<string, Inventory>();
+  inventorySnapshot.forEach(inv => {
+    const sid = String(inv.sku_id || "").trim();
+    if (sid) inventoryMap.set(sid, inv);
+  });
+
+  // Pre-index promotions
+  const promoMap = new Map<string, Set<string>>();
+  promotionsCalendar.forEach(p => {
+    const sid = String(p.sku_id || "").trim();
+    const wdate = String(p.week_date || "").trim();
+    if (!promoMap.has(sid)) promoMap.set(sid, new Set());
+    promoMap.get(sid)!.add(wdate);
+  });
+
   const diwaliDates = festiveCalendar
     .filter(f => f.festival_name && f.festival_name.toLowerCase().includes('diwali'))
     .map(f => String(f.week_date || "").trim());
@@ -124,8 +140,8 @@ function performAnalysis(
         ? volumes.reduce((a, b) => a + b, 0) / volumes.length 
         : 0;
 
-      // ERROR 2 FIX: Available Stock formula
-      const inv = inventorySnapshot.find(i => String(i.sku_id).trim() === skuId) || { warehouse_stock: 0, in_transit_qty: 0, committed_qty: 0 };
+      // ERROR 2 FIX: Available Stock formula using Map lookup
+      const inv = inventoryMap.get(skuId) || { warehouse_stock: 0, in_transit_qty: 0, committed_qty: 0 } as Inventory;
       const warehouse = Number(inv.warehouse_stock) || 0;
       const inTransit = Number(inv.in_transit_qty) || 0;
       const committed = Number(inv.committed_qty) || 0;
