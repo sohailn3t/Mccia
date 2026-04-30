@@ -58,7 +58,7 @@ interface Festival {
 const normalizeRow = (row: any) => {
   const normalized: any = {};
   const aliases: Record<string, string[]> = {
-    sku_id: ['sku_id', 'sku', 'sku_code', 'SKU', 'SKU_ID'],
+    sku_id: ['sku_id', 'sku', 'sku_code', 'SKU', 'SKU_ID', 'SKU ID'],
     week_date: ['week_date', 'week_start_date', 'date', 'week', 'Week', 'Week_Start_Date'],
     units_sold: ['units_sold', 'quantity', 'units', 'sales', 'Sales', 'Quantity'],
     product_name: ['product_name', 'sku_name', 'name', 'Name', 'Product_Name'],
@@ -242,7 +242,7 @@ app.post("/api/analyze", upload.fields([
     }
 
     // Advanced Validation (After key normalization)
-    const firstSales = salesHistory[0];
+    const firstSales = (salesHistory[0] || {}) as any;
     const missing = [];
     if (!('sku_id' in firstSales)) missing.push('SKU ID');
     if (!('week_date' in firstSales)) missing.push('Week/Date');
@@ -250,7 +250,7 @@ app.post("/api/analyze", upload.fields([
 
     if (missing.length && !ignoreErrors) {
       return res.status(400).json({ 
-        error: `Validation Error: Could not find required columns for ${missing.join(", ")}. Please ensure CSV headers match our requirements or use the 'Ignore' option.`,
+        error: `Validation Error: Could not find required data in columns [${missing.join(", ")}]. Please ensure your CSV has headers and data rows.`,
         isRecoverable: true 
       });
     }
@@ -259,10 +259,14 @@ app.post("/api/analyze", upload.fields([
     const festiveCalendar = files.festive_calendar ? parseCSVBuffer<Festival>(files.festive_calendar[0].buffer) : [];
 
     const analysis = performAnalysis(salesHistory, skuMaster, inventorySnapshot, promotionsCalendar, festiveCalendar);
+    console.log("Analysis completed successfully for", analysis.results.length, "SKUs");
     res.json(analysis);
-  } catch (err) {
-    console.error("Analysis Error:", err);
-    res.status(500).json({ error: "System could not process the provided datasets. Please check file formatting." });
+  } catch (err: any) {
+    console.error("ANALYSIS SERVER ERROR:", err);
+    res.status(500).json({ 
+      error: `Server Analysis Error: ${err.message || 'Unknown error'}. Please check your CSV data for inconsistencies.`,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 

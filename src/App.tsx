@@ -119,18 +119,24 @@ export default function App() {
 
       let json;
       try {
-        json = await res.json();
-      } catch (e) {
-        throw new Error("System could not process the provided datasets. Verify CSV columns.");
+        const text = await res.text();
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          console.error("Failed to parse response:", text);
+          throw new Error("The server returned a non-JSON response. This often means the server crashed or timed out.");
+        }
+      } catch (e: any) {
+        throw new Error(e.message || "Connection failed. Please check your network and try again.");
       }
 
       if (!res.ok) {
         if (json.isRecoverable) {
           setRecoverableError({ message: json.error, isRecoverable: true });
-          setAnalyzing(false); // Make sure we stop loading state to show modal
+          setAnalyzing(false);
           return;
         }
-        throw new Error(json.error || "Analysis failed");
+        throw new Error(json.error || `Server Error (${res.status}): Analysis failed. Please check file columns.`);
       }
 
       setData(json.results || []);
