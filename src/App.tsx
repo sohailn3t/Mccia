@@ -130,6 +130,10 @@ export default function App() {
         throw new Error(e.message || "Connection failed. Please check your network and try again.");
       }
 
+      if (res.status === 413) {
+        throw new Error("The CSV files are too large for Vercel (Max 4.5MB total). Please try uploading smaller batches of data.");
+      }
+
       if (!res.ok) {
         if (json.isRecoverable) {
           setRecoverableError({ message: json.error, isRecoverable: true });
